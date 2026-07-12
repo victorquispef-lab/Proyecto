@@ -2,7 +2,8 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Meta viewport actualizado para evitar zoom accidental en móviles -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Simulador de Amortiguador de Masa Sintonizada (TMD) - Multinivel</title>
     <style>
         /* Estilos generales y reset */
@@ -225,6 +226,32 @@
         .badge.on { background: rgba(0, 128, 0, 0.2); color: #4dff4d; border: 1px solid #008000; }
         .badge.off { background: rgba(255, 0, 0, 0.2); color: #ff4d4d; border: 1px solid #800000; }
 
+        /* --- MEDIA QUERIES PARA CELULARES --- */
+        @media screen and (max-width: 768px) {
+            body {
+                flex-direction: column;
+                height: auto;
+                overflow-y: auto;
+            }
+
+            #simulation-area {
+                width: 100%;
+                height: 55vh; /* El lienzo toma el 55% de la pantalla */
+                flex: none;
+            }
+
+            #control-panel {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid #333;
+                padding: 15px;
+                overflow-y: visible;
+            }
+            
+            h1 {
+                font-size: 1.1rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -542,7 +569,7 @@
         let lastTime = performance.now();
 
         function drawRuler(baseY) {
-            let rX = 70; 
+            let rX = canvas.width < 500 ? 30 : 70; // Dinámico para móviles
             let maxFloors = parseInt(slFloors.max);
             let topY = baseY - 20 - (maxFloors * FLOOR_HEIGHT) - 30;
 
@@ -570,14 +597,17 @@
                 ctx.fillText(heightMeters + " m", rX - 8, y);
             }
 
-            ctx.save();
-            ctx.translate(rX - 45, (baseY - 20 + topY) / 2);
-            ctx.rotate(-Math.PI / 2);
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#4da6ff';
-            ctx.font = 'bold 12px Segoe UI';
-            ctx.fillText("ALTURA (METROS)", 0, 0);
-            ctx.restore();
+            // Ocultar el texto vertical de "ALTURA" si la pantalla es muy estrecha
+            if (canvas.width >= 400) {
+                ctx.save();
+                ctx.translate(rX - 45, (baseY - 20 + topY) / 2);
+                ctx.rotate(-Math.PI / 2);
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#4da6ff';
+                ctx.font = 'bold 12px Segoe UI';
+                ctx.fillText("ALTURA (METROS)", 0, 0);
+                ctx.restore();
+            }
         }
 
         function drawModelMaquette(ctx, model, baseX, baseY) {
@@ -588,6 +618,9 @@
             let topFloorTopY = 0;
             let topFloorBottomX = 0;
             let topFloorBottomY = 0;
+
+            // Escalar un poco el modelo si la pantalla es muy pequeña y está en modo comparación
+            let modelScale = (isCompareMode && canvas.width < 500) ? 0.7 : 1;
 
             for (let i = 0; i < N; i++) {
                 let dx_curr = model.x[i] * SCALE_X;
@@ -607,13 +640,16 @@
                 }
 
                 // Columnas
-                ctx.lineWidth = 6;
+                ctx.lineWidth = 6 * modelScale;
                 ctx.lineCap = 'round';
+                let offsetExt = 55 * modelScale;
+                let offsetInt = 35 * modelScale;
+                
                 let columns = [
-                    { offset: -55, color: '#3a3a3a' }, 
-                    { offset: 55, color: '#3a3a3a' },  
-                    { offset: -35, color: '#6a6a75' }, 
-                    { offset: 35, color: '#6a6a75' }   
+                    { offset: -offsetExt, color: '#3a3a3a' }, 
+                    { offset: offsetExt, color: '#3a3a3a' },  
+                    { offset: -offsetInt, color: '#6a6a75' }, 
+                    { offset: offsetInt, color: '#6a6a75' }   
                 ];
 
                 columns.forEach(col => {
@@ -630,29 +666,26 @@
 
                 // Losa / Techo del piso actual
                 ctx.fillStyle = '#555';
-                ctx.fillRect(floorX - 80, topY, 160, 15);
+                let losaW = 160 * modelScale;
+                ctx.fillRect(floorX - (losaW/2), topY, losaW, 15 * modelScale);
             }
 
             // --- DIBUJAR EL TMD DENTRO DE LA HABITACIÓN DEL ÚLTIMO PISO ---
             if (model.hasTMD) {
                 let dx2 = model.x2 * SCALE_X;
-                let contW = 120; // Un poco más ancho para compensar la deformación entre piso y techo
-                let contH = 40; 
+                let contW = 120 * modelScale; 
+                let contH = 40 * modelScale; 
                 
-                // 1. RECIPIENTE: Fijado al PISO del último nivel (topFloorBottomY / topFloorBottomX)
                 let contY = topFloorBottomY - contH; 
 
-                // Soportes atornillados al piso inferior de la habitación
                 ctx.fillStyle = '#777';
-                ctx.fillRect(topFloorBottomX - contW/2 + 10, topFloorBottomY - 6, 12, 6);
-                ctx.fillRect(topFloorBottomX + contW/2 - 22, topFloorBottomY - 6, 12, 6);
+                ctx.fillRect(topFloorBottomX - contW/2 + 10, topFloorBottomY - 6, 12 * modelScale, 6);
+                ctx.fillRect(topFloorBottomX + contW/2 - 22, topFloorBottomY - 6, 12 * modelScale, 6);
 
-                // Fondo del contenedor
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
                 ctx.fillRect(topFloorBottomX - contW/2, contY, contW, contH);
 
-                // Líquido
-                let liqH = 26;
+                let liqH = 26 * modelScale;
                 let liqY = contY + contH - liqH;
                 
                 let viscVal = parseInt(selVisc.value);
@@ -665,21 +698,17 @@
                 ctx.fillStyle = liqColor;
                 ctx.fillRect(topFloorBottomX - contW/2, liqY, contW, liqH);
 
-                // Bordes del contenedor
                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
                 ctx.lineWidth = 2;
                 ctx.strokeRect(topFloorBottomX - contW/2, contY, contW, contH);
 
-
-                // 2. PÉNDULO: Colgando desde el TECHO del último nivel (topFloorTopY / topFloorTopX)
                 if (currentParams.m2_kg > 0) {
                     let bobX = topFloorTopX + dx2;
-                    let bobY = contY + 24; // Sumergido en el líquido
+                    let bobY = contY + (24 * modelScale); 
 
                     let pivotX = topFloorTopX;
-                    let pivotY = topFloorTopY + 15; // +15 para colgar debajo del grosor de la losa del techo
+                    let pivotY = topFloorTopY + (15 * modelScale); 
 
-                    // Cuerda atada al techo
                     ctx.beginPath();
                     ctx.moveTo(pivotX, pivotY);
                     ctx.lineTo(bobX, bobY);
@@ -687,9 +716,8 @@
                     ctx.lineWidth = 2;
                     ctx.stroke();
 
-                    // Esfera (Masa del Péndulo)
-                    let radius = 8 + (currentParams.m2_kg / 300) * 8; 
-                    if (radius > 16) radius = 16;
+                    let radius = (8 + (currentParams.m2_kg / 300) * 8) * modelScale; 
+                    if (radius > (16 * modelScale)) radius = 16 * modelScale;
 
                     let grad = ctx.createRadialGradient(bobX - radius/3, bobY - radius/3, 1, bobX, bobY, radius);
                     grad.addColorStop(0, '#ffffff');
@@ -717,8 +745,10 @@
             let x_g_val = env * PHY.A_base * Math.sin(2 * Math.PI * currentParams.freq * time);
             let x_g_px = x_g_val * SCALE_X;
             
-            let tableW = isCompareMode ? Math.min(canvas.width * 0.8, 800) : 400;
-            let xOffset = 30; 
+            // Ajuste dinámico de la mesa basado en el ancho de pantalla
+            let baseW = Math.min(canvas.width * 0.8, 400);
+            let tableW = isCompareMode ? Math.min(canvas.width * 0.9, 800) : baseW;
+            let xOffset = canvas.width < 500 ? 10 : 30; 
             let tableX = (canvas.width / 2) - (tableW / 2) + x_g_px + xOffset;
 
             // Rodillos
@@ -740,20 +770,23 @@
                 let centerLeft = (canvas.width / 2) - gap + xOffset;
                 let centerRight = (canvas.width / 2) + gap + xOffset;
 
+                let modelScale = canvas.width < 500 ? 0.7 : 1;
+                let baseSize = 160 * modelScale;
+
                 ctx.fillStyle = '#444';
-                ctx.fillRect(centerLeft + x_g_px - 80, baseY - 20, 160, 20);
-                ctx.fillRect(centerRight + x_g_px - 80, baseY - 20, 160, 20);
+                ctx.fillRect(centerLeft + x_g_px - (baseSize/2), baseY - 20, baseSize, 20);
+                ctx.fillRect(centerRight + x_g_px - (baseSize/2), baseY - 20, baseSize, 20);
                 
                 drawModelMaquette(ctx, modelLeft, centerLeft + x_g_px, baseY);
                 drawModelMaquette(ctx, modelRight, centerRight + x_g_px, baseY);
                 
                 ctx.fillStyle = '#ff4d4d';
-                ctx.font = '16px bold Segoe UI';
+                ctx.font = (canvas.width < 500 ? '12px' : '16px') + ' bold Segoe UI';
                 ctx.textAlign = 'center';
-                ctx.fillText('Sin Amortiguador', centerLeft + x_g_px, baseY - 40 - (currentParams.floors * FLOOR_HEIGHT + 20));
+                ctx.fillText('Sin TMD', centerLeft + x_g_px, baseY - 40 - (currentParams.floors * FLOOR_HEIGHT + 20));
 
                 ctx.fillStyle = '#4dff4d';
-                ctx.fillText('Con Amortiguador', centerRight + x_g_px, baseY - 40 - (currentParams.floors * FLOOR_HEIGHT + 20));
+                ctx.fillText('Con TMD', centerRight + x_g_px, baseY - 40 - (currentParams.floors * FLOOR_HEIGHT + 20));
 
             } else {
                 let centerSingle = (canvas.width / 2) + xOffset;
