@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Amortiguador de Masa Sintonizada (TMD) - Multinivel</title>
+    <style>
+        /* Estilos generales y reset */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: #121212;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+
+        /* Área de simulación (Izquierda) */
+        #simulation-area {
+            flex: 1;
+            position: relative;
+            background: linear-gradient(to bottom, #1a1a24, #121216);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Panel de control (Derecha) */
+        #control-panel {
+            width: 380px;
+            background-color: #1e1e1e;
+            box-shadow: -4px 0 15px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            padding: 25px;
+            overflow-y: auto;
+            border-left: 1px solid #333;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            color: #4da6ff;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .control-group {
+            margin-bottom: 22px;
+        }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: #b0b0b0;
+            margin-bottom: 8px;
+        }
+
+        .control-group span.val {
+            color: #fff;
+            font-weight: bold;
+        }
+
+        /* Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #4da6ff;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 5px rgba(77, 166, 255, 0.5);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #444;
+            border-radius: 2px;
+        }
+
+        /* Select / Dropdown */
+        select {
+            width: 100%;
+            padding: 8px;
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        select:focus {
+            border-color: #4da6ff;
+        }
+
+        /* Botones */
+        .buttons-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background-color: #444;
+            border-color: #555;
+        }
+
+        button.primary {
+            background-color: #0066cc;
+            border-color: #005bb5;
+        }
+
+        button.primary:hover {
+            background-color: #005bb5;
+        }
+        
+        button.active-btn {
+            background-color: #008000;
+            border-color: #006600;
+        }
+        
+        .full-width {
+            grid-column: span 2;
+        }
+
+        /* Toggle checkbox */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            background: #2a2a2a;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #333;
+        }
+
+        .toggle-container input {
+            margin-right: 12px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .toggle-container label {
+            font-size: 0.9rem;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        /* Panel de Resultados */
+        .results-panel {
+            background-color: #25252b;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            margin-top: auto;
+        }
+
+        .results-panel h2 {
+            font-size: 1rem;
+            color: #fff;
+            margin-bottom: 15px;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+
+        .result-value {
+            font-family: monospace;
+            font-size: 1.05rem;
+            color: #4da6ff;
+            font-weight: bold;
+        }
+        
+        .badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .badge.on { background: rgba(0, 128, 0, 0.2); color: #4dff4d; border: 1px solid #008000; }
+        .badge.off { background: rgba(255, 0, 0, 0.2); color: #ff4d4d; border: 1px solid #800000; }
+
+    </style>
+</head>
+<body>
+
+    <div id="simulation-area">
+        <canvas id="simCanvas"></canvas>
+    </div>
+
+    <div id="control-panel">
+        <h1>Control de Simulación</h1>
+
+        <div class="control-group">
+            <label>Número de pisos totales <span class="val" id="valFloors">3</span></label>
+            <input type="range" id="slFloors" min="1" max="5" step="1" value="3">
+        </div>
+
+        <div class="control-group">
+            <label>Frecuencia del sismo (Hz) <span class="val" id="valFreq">1.0</span></label>
+            <input type="range" id="slFreq" min="0.1" max="5.0" step="0.05" value="1.0">
+        </div>
+
+        <div class="control-group">
+            <label>Masa de la esfera (g) <span class="val" id="valMass">150,000</span></label>
+            <input type="range" id="slMass" min="0" max="300000" step="5000" value="150000">
+        </div>
+
+        <div class="control-group">
+            <label>Líquido amortiguador</label>
+            <select id="selVisc">
+                <option value="5">Agua (~1 mPa·s)</option>
+                <option value="30">Aceite Vegetal (~50 mPa·s)</option>
+                <option value="80" selected>Aceite de Motor SAE 30 (~200 mPa·s)</option>
+                <option value="200">Glicerina (~1500 mPa·s)</option>
+                <option value="400">Miel (~3000 mPa·s)</option>
+            </select>
+        </div>
+
+        <div class="buttons-grid">
+            <button id="btnStart" class="primary">Iniciar</button>
+            <button id="btnPause">Pausar</button>
+            <button id="btnReset">Reiniciar</button>
+            <button id="btnResonance" style="background-color: #6a0dad; border-color: #4b0082;">Resonancia</button>
+            <button id="btnTMD" class="active-btn full-width">TMD Activado</button>
+        </div>
+
+        <div class="toggle-container">
+            <input type="checkbox" id="chkCompare">
+            <label for="chkCompare">Comparar con y sin TMD</label>
+        </div>
+
+        <div class="results-panel">
+            <h2>Resultados (Techo Último Piso)</h2>
+            <div id="resultsSingle">
+                <div class="result-item">
+                    <span>Estado del sistema:</span>
+                    <span id="lblState" class="badge on">Con TMD</span>
+                </div>
+                <div class="result-item">
+                    <span>Desplazamiento:</span>
+                    <span id="lblDisp" class="result-value">0.00 cm</span>
+                </div>
+            </div>
+            <div id="resultsCompare" style="display: none;">
+                <div class="result-item">
+                    <span style="color: #ff4d4d;">Sin TMD:</span>
+                    <span id="lblDispLeft" class="result-value">0.00 cm</span>
+                </div>
+                <div class="result-item">
+                    <span style="color: #4dff4d;">Con TMD:</span>
+                    <span id="lblDispRight" class="result-value">0.00 cm</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN FÍSICA ---
+        const SCALE_X = 1200; 
+        const FLOOR_HEIGHT = 85; 
+
+        const PHY = {
+            m1: 1000,      
+            k1: 25000,     
+            c1: 50,        
+            g: 9.81,       
+            A_base: 0.0045,
+            maxX2: 0.042   
+        };
+
+        // --- CLASE DEL MODELO MATEMÁTICO ---
+        class BuildingModel {
+            constructor(hasTMD, numFloors) {
+                this.hasTMD = hasTMD;
+                this.N = numFloors;
+                this.x = new Array(this.N).fill(0);
+                this.v = new Array(this.N).fill(0);
+                this.x2 = 0; 
+                this.v2 = 0; 
+            }
+
+            reset() {
+                this.x.fill(0);
+                this.v.fill(0);
+                this.x2 = 0;
+                this.v2 = 0;
+            }
+
+            update(dt, a_g, params) {
+                let { m1, k1, c1, g, maxX2 } = PHY;
+                let { m2_kg, c2, freq } = params;
+                let N = this.N;
+                
+                let w_tune = 2 * Math.PI * freq; 
+                let k2 = (m2_kg > 0) ? m2_kg * w_tune * w_tune : 0; 
+                
+                let a = new Array(N).fill(0);
+
+                for (let i = 0; i < N; i++) {
+                    let x_prev = (i === 0) ? 0 : this.x[i-1];
+                    let v_prev = (i === 0) ? 0 : this.v[i-1];
+                    let x_next = (i === N - 1) ? this.x[i] : this.x[i+1];
+                    let v_next = (i === N - 1) ? this.v[i] : this.v[i+1];
+
+                    let f_below = -k1 * (this.x[i] - x_prev) - c1 * (this.v[i] - v_prev);
+                    let f_above = k1 * (x_next - this.x[i]) + c1 * (v_next - this.v[i]);
+                    let f_net = f_below + f_above;
+
+                    if (i === N - 1 && this.hasTMD && m2_kg > 0) {
+                        f_net += (k2 * this.x2 + c2 * this.v2);
+                    }
+
+                    a[i] = f_net / m1 - a_g;
+                }
+
+                let a2 = 0;
+                if (this.hasTMD) {
+                    if (m2_kg > 0) {
+                        a2 = (-k2 * this.x2 - c2 * this.v2) / m2_kg - a_g - a[N - 1];
+                    } else {
+                        this.x2 = 0;
+                        this.v2 = 0;
+                    }
+                }
+
+                for (let i = 0; i < N; i++) {
+                    this.v[i] += a[i] * dt;
+                    this.x[i] += this.v[i] * dt;
+                }
+
+                if (this.hasTMD && m2_kg > 0) {
+                    this.v2 += a2 * dt;
+                    this.x2 += this.v2 * dt;
+
+                    if (this.x2 > maxX2) {
+                        this.x2 = maxX2;
+                        if (this.v2 > 0) this.v2 *= -0.4;
+                    } else if (this.x2 < -maxX2) {
+                        this.x2 = -maxX2;
+                        if (this.v2 < 0) this.v2 *= -0.4;
+                    }
+                }
+            }
+        }
+
+        // --- ESTADO DE LA APLICACIÓN ---
+        let isRunning = false;
+        let isCompareMode = false;
+        let time = 0;
+        let tmdEnabledSingle = true;
+
+        let currentParams = {
+            floors: 3,
+            freq: 1.0,
+            m2_kg: 150,
+            c2: 80
+        };
+
+        let modelSingle = new BuildingModel(true, currentParams.floors);
+        let modelLeft = new BuildingModel(false, currentParams.floors); 
+        let modelRight = new BuildingModel(true, currentParams.floors); 
+
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const slFloors = document.getElementById('slFloors');
+        const slFreq = document.getElementById('slFreq');
+        const slMass = document.getElementById('slMass');
+        const selVisc = document.getElementById('selVisc');
+        
+        const valFloors = document.getElementById('valFloors');
+        const valFreq = document.getElementById('valFreq');
+        const valMass = document.getElementById('valMass');
+        
+        const btnStart = document.getElementById('btnStart');
+        const btnPause = document.getElementById('btnPause');
+        const btnReset = document.getElementById('btnReset');
+        const btnResonance = document.getElementById('btnResonance');
+        const btnTMD = document.getElementById('btnTMD');
+        const chkCompare = document.getElementById('chkCompare');
+        
+        const lblState = document.getElementById('lblState');
+        const lblDisp = document.getElementById('lblDisp');
+        const lblDispLeft = document.getElementById('lblDispLeft');
+        const lblDispRight = document.getElementById('lblDispRight');
+        
+        const resSingle = document.getElementById('resultsSingle');
+        const resCompare = document.getElementById('resultsCompare');
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            if (!isRunning) draw(); 
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function updateParams() {
+            let oldFloors = currentParams.floors;
+            currentParams.floors = parseInt(slFloors.value);
+            currentParams.freq = parseFloat(slFreq.value);
+            currentParams.m2_kg = parseFloat(slMass.value) / 1000; 
+            currentParams.c2 = parseFloat(selVisc.value);
+            
+            valFloors.textContent = currentParams.floors;
+            valFreq.textContent = currentParams.freq.toFixed(2);
+            valMass.textContent = parseInt(slMass.value).toLocaleString('en-US'); 
+
+            if (oldFloors !== currentParams.floors) {
+                modelSingle = new BuildingModel(tmdEnabledSingle, currentParams.floors);
+                modelLeft = new BuildingModel(false, currentParams.floors);
+                modelRight = new BuildingModel(true, currentParams.floors);
+                time = 0;
+            }
+        }
+
+        slFloors.addEventListener('input', () => { updateParams(); if(!isRunning) draw(); updateUIResults(); });
+        slFreq.addEventListener('input', updateParams);
+        slMass.addEventListener('input', updateParams);
+        selVisc.addEventListener('change', updateParams);
+
+        btnStart.addEventListener('click', () => { isRunning = true; });
+        btnPause.addEventListener('click', () => { isRunning = false; });
+        
+        btnReset.addEventListener('click', () => {
+            time = 0;
+            modelSingle.reset();
+            modelLeft.reset();
+            modelRight.reset();
+            if (!isRunning) draw();
+            updateUIResults();
+        });
+
+        // BOTÓN RESONANCIA
+        btnResonance.addEventListener('click', () => {
+            let N = currentParams.floors;
+            let w = Math.sqrt(2 * (PHY.k1 / PHY.m1) * (1 - Math.cos(Math.PI / (2 * N + 1))));
+            let f = w / (2 * Math.PI);
+            
+            slFreq.value = f.toFixed(2);
+            updateParams();
+            if (!isRunning) draw();
+        });
+
+        btnTMD.addEventListener('click', () => {
+            if (isCompareMode) return; 
+            tmdEnabledSingle = !tmdEnabledSingle;
+            modelSingle.hasTMD = tmdEnabledSingle;
+            
+            if (tmdEnabledSingle) {
+                btnTMD.textContent = "TMD Activado";
+                btnTMD.className = "active-btn full-width";
+                lblState.textContent = "Con TMD";
+                lblState.className = "badge on";
+            } else {
+                btnTMD.textContent = "TMD Desactivado";
+                btnTMD.className = "full-width";
+                lblState.textContent = "Sin TMD";
+                lblState.className = "badge off";
+            }
+            if (!isRunning) draw();
+        });
+
+        chkCompare.addEventListener('change', (e) => {
+            isCompareMode = e.target.checked;
+            time = 0;
+            modelSingle.reset();
+            modelLeft.reset();
+            modelRight.reset();
+            
+            if (isCompareMode) {
+                resSingle.style.display = 'none';
+                resCompare.style.display = 'block';
+                btnTMD.disabled = true;
+                btnTMD.style.opacity = '0.5';
+            } else {
+                resSingle.style.display = 'block';
+                resCompare.style.display = 'none';
+                btnTMD.disabled = false;
+                btnTMD.style.opacity = '1';
+            }
+            if (!isRunning) draw();
+        });
+
+        function updateUIResults() {
+            let N = currentParams.floors - 1; 
+            if (isCompareMode) {
+                lblDispLeft.textContent = (modelLeft.x[N] * 100).toFixed(2) + " cm";
+                lblDispRight.textContent = (modelRight.x[N] * 100).toFixed(2) + " cm";
+            } else {
+                lblDisp.textContent = (modelSingle.x[N] * 100).toFixed(2) + " cm";
+            }
+        }
+
+        // --- MOTOR DE FÍSICA Y RENDERIZADO ---
+        let lastTime = performance.now();
+
+        function drawRuler(baseY) {
+            let rX = 70; 
+            let maxFloors = parseInt(slFloors.max);
+            let topY = baseY - 20 - (maxFloors * FLOOR_HEIGHT) - 30;
+
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(rX, baseY - 20);
+            ctx.lineTo(rX, topY);
+            ctx.stroke();
+
+            ctx.fillStyle = '#aaa';
+            ctx.font = '12px Segoe UI';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+
+            for (let i = 0; i <= maxFloors; i++) {
+                let y = baseY - 20 - (i * FLOOR_HEIGHT);
+                ctx.beginPath();
+                ctx.moveTo(rX, y);
+                ctx.lineTo(rX + 8, y);
+                ctx.stroke();
+
+                let heightMeters = i * 3; 
+                ctx.fillText(heightMeters + " m", rX - 8, y);
+            }
+
+            ctx.save();
+            ctx.translate(rX - 45, (baseY - 20 + topY) / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#4da6ff';
+            ctx.font = 'bold 12px Segoe UI';
+            ctx.fillText("ALTURA (METROS)", 0, 0);
+            ctx.restore();
+        }
+
+        function drawModelMaquette(ctx, model, baseX, baseY) {
+            let N = model.N;
+            let tableX = baseX;
+
+            let topFloorTopX = 0;
+            let topFloorTopY = 0;
+            let topFloorBottomX = 0;
+            let topFloorBottomY = 0;
+
+            for (let i = 0; i < N; i++) {
+                let dx_curr = model.x[i] * SCALE_X;
+                let dx_prev = (i === 0) ? 0 : model.x[i-1] * SCALE_X;
+
+                let floorX = tableX + dx_curr;
+                let prevX = tableX + dx_prev;
+                
+                let bottomY = baseY - 20 - i * FLOOR_HEIGHT;
+                let topY = bottomY - FLOOR_HEIGHT;
+
+                if (i === N - 1) {
+                    topFloorTopX = floorX;
+                    topFloorTopY = topY;
+                    topFloorBottomX = prevX;
+                    topFloorBottomY = bottomY;
+                }
+
+                // Columnas
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                let columns = [
+                    { offset: -55, color: '#3a3a3a' }, 
+                    { offset: 55, color: '#3a3a3a' },  
+                    { offset: -35, color: '#6a6a75' }, 
+                    { offset: 35, color: '#6a6a75' }   
+                ];
+
+                columns.forEach(col => {
+                    ctx.beginPath();
+                    ctx.strokeStyle = col.color;
+                    ctx.moveTo(prevX + col.offset, bottomY);
+                    ctx.bezierCurveTo(
+                        prevX + col.offset, bottomY - FLOOR_HEIGHT * 0.4,
+                        floorX + col.offset, topY + FLOOR_HEIGHT * 0.4,
+                        floorX + col.offset, topY
+                    );
+                    ctx.stroke();
+                });
+
+                // Losa / Techo del piso actual
+                ctx.fillStyle = '#555';
+                ctx.fillRect(floorX - 80, topY, 160, 15);
+            }
+
+            // --- DIBUJAR EL TMD DENTRO DE LA HABITACIÓN DEL ÚLTIMO PISO ---
+            if (model.hasTMD) {
+                let dx2 = model.x2 * SCALE_X;
+                let contW = 120; // Un poco más ancho para compensar la deformación entre piso y techo
+                let contH = 40; 
+                
+                // 1. RECIPIENTE: Fijado al PISO del último nivel (topFloorBottomY / topFloorBottomX)
+                let contY = topFloorBottomY - contH; 
+
+                // Soportes atornillados al piso inferior de la habitación
+                ctx.fillStyle = '#777';
+                ctx.fillRect(topFloorBottomX - contW/2 + 10, topFloorBottomY - 6, 12, 6);
+                ctx.fillRect(topFloorBottomX + contW/2 - 22, topFloorBottomY - 6, 12, 6);
+
+                // Fondo del contenedor
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                ctx.fillRect(topFloorBottomX - contW/2, contY, contW, contH);
+
+                // Líquido
+                let liqH = 26;
+                let liqY = contY + contH - liqH;
+                
+                let viscVal = parseInt(selVisc.value);
+                let liqColor = 'rgba(0, 136, 255, 0.4)'; 
+                if(viscVal === 30) liqColor = 'rgba(220, 200, 50, 0.4)'; 
+                if(viscVal === 80) liqColor = 'rgba(150, 100, 0, 0.5)'; 
+                if(viscVal === 200) liqColor = 'rgba(200, 200, 200, 0.4)'; 
+                if(viscVal === 400) liqColor = 'rgba(255, 150, 0, 0.6)'; 
+
+                ctx.fillStyle = liqColor;
+                ctx.fillRect(topFloorBottomX - contW/2, liqY, contW, liqH);
+
+                // Bordes del contenedor
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(topFloorBottomX - contW/2, contY, contW, contH);
+
+
+                // 2. PÉNDULO: Colgando desde el TECHO del último nivel (topFloorTopY / topFloorTopX)
+                if (currentParams.m2_kg > 0) {
+                    let bobX = topFloorTopX + dx2;
+                    let bobY = contY + 24; // Sumergido en el líquido
+
+                    let pivotX = topFloorTopX;
+                    let pivotY = topFloorTopY + 15; // +15 para colgar debajo del grosor de la losa del techo
+
+                    // Cuerda atada al techo
+                    ctx.beginPath();
+                    ctx.moveTo(pivotX, pivotY);
+                    ctx.lineTo(bobX, bobY);
+                    ctx.strokeStyle = '#ccc';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Esfera (Masa del Péndulo)
+                    let radius = 8 + (currentParams.m2_kg / 300) * 8; 
+                    if (radius > 16) radius = 16;
+
+                    let grad = ctx.createRadialGradient(bobX - radius/3, bobY - radius/3, 1, bobX, bobY, radius);
+                    grad.addColorStop(0, '#ffffff');
+                    grad.addColorStop(0.3, '#aaaaaa');
+                    grad.addColorStop(1, '#444444');
+                    
+                    ctx.beginPath();
+                    ctx.arc(bobX, bobY, radius, 0, Math.PI * 2);
+                    ctx.fillStyle = grad;
+                    ctx.fill();
+                    ctx.strokeStyle = '#222';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const baseY = canvas.height - 40;
+
+            drawRuler(baseY);
+
+            let env = 1.0 - Math.exp(-time * 1.5);
+            let x_g_val = env * PHY.A_base * Math.sin(2 * Math.PI * currentParams.freq * time);
+            let x_g_px = x_g_val * SCALE_X;
+            
+            let tableW = isCompareMode ? Math.min(canvas.width * 0.8, 800) : 400;
+            let xOffset = 30; 
+            let tableX = (canvas.width / 2) - (tableW / 2) + x_g_px + xOffset;
+
+            // Rodillos
+            ctx.fillStyle = '#666';
+            for(let i=10; i<tableW; i+= 60) {
+                ctx.beginPath();
+                ctx.arc((canvas.width/2) - (tableW/2) + i + xOffset, baseY + 30, 10, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            // Plataforma base
+            ctx.fillStyle = '#2a2a2a';
+            ctx.fillRect(tableX, baseY, tableW, 20);
+            ctx.fillStyle = '#007acc';
+            ctx.fillRect(tableX, baseY, tableW, 4);
+            
+            if (isCompareMode) {
+                let gap = tableW * 0.25;
+                let centerLeft = (canvas.width / 2) - gap + xOffset;
+                let centerRight = (canvas.width / 2) + gap + xOffset;
+
+                ctx.fillStyle = '#444';
+                ctx.fillRect(centerLeft + x_g_px - 80, baseY - 20, 160, 20);
+                ctx.fillRect(centerRight + x_g_px - 80, baseY - 20, 160, 20);
+                
+                drawModelMaquette(ctx, modelLeft, centerLeft + x_g_px, baseY);
+                drawModelMaquette(ctx, modelRight, centerRight + x_g_px, baseY);
+                
+                ctx.fillStyle = '#ff4d4d';
+                ctx.font = '16px bold Segoe UI';
+                ctx.textAlign = 'center';
+                ctx.fillText('Sin Amortiguador', centerLeft + x_g_px, baseY - 40 - (currentParams.floors * FLOOR_HEIGHT + 20));
+
+                ctx.fillStyle = '#4dff4d';
+                ctx.fillText('Con Amortiguador', centerRight + x_g_px, baseY - 40 - (currentParams.floors * FLOOR_HEIGHT + 20));
+
+            } else {
+                let centerSingle = (canvas.width / 2) + xOffset;
+                ctx.fillStyle = '#444';
+                ctx.fillRect(centerSingle + x_g_px - 80, baseY - 20, 160, 20);
+                drawModelMaquette(ctx, modelSingle, centerSingle + x_g_px, baseY);
+            }
+        }
+
+        function loop(timestamp) {
+            let dt_real = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            if (isRunning) {
+                let substeps = 15;
+                let dt = Math.min(dt_real, 0.03) / substeps; 
+                
+                for (let i = 0; i < substeps; i++) {
+                    time += dt;
+                    let env = 1.0 - Math.exp(-time * 1.5);
+                    let w = 2 * Math.PI * currentParams.freq;
+                    let a_g = -env * PHY.A_base * w * w * Math.sin(w * time);
+
+                    if (isCompareMode) {
+                        modelLeft.update(dt, a_g, currentParams);
+                        modelRight.update(dt, a_g, currentParams);
+                    } else {
+                        modelSingle.update(dt, a_g, currentParams);
+                    }
+                }
+                updateUIResults();
+            }
+
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        resizeCanvas();
+        updateParams();
+        requestAnimationFrame(loop);
+
+    </script>
+</body>
+</html>
